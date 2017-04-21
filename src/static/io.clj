@@ -42,10 +42,10 @@
                          (take 500 (slurp file :encoding (:encoding (config/config))))))
         content (delay
                  (:out (sh/sh (:emacs (config/config))
-                           "-batch" "-eval"
+                           "--batch" "--eval"
                            (str
                             "(progn "
-                            (apply str (map second (:emacs-eval (config/config))))
+                            (apply str (:emacs-eval (config/config)))
                             " (find-file \"" (.getAbsolutePath file) "\") "
                             (:org-export-command (config/config))
                             ")"))))]
