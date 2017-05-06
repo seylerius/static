@@ -17,9 +17,10 @@
 (defn- prepare-metadata [metadata]
   (reduce (fn [h [_ k v]]
             (let [key (keyword (.toLowerCase k))]
-              (if (not (h key))
-                (assoc h key v)
-                h)))
+              (cond
+                (= :link key) (assoc h :links (conj (into [] (:links h)) v))
+                (not (h key)) (assoc h key v)
+                :else h)))
           {} (re-seq #"([^:#\+]+): (.+)(\n|$)" metadata)))
 
 (defn- read-markdown [file]
@@ -34,15 +35,13 @@
     [(prepare-metadata metadata) (delay content)]))
 
 (defn read-org [file]
-  (if (not (:emacs (config/config)))
-    (do (log/error "Path to Emacs is required for org files.")
-        (System/exit 0)))
   (let [metadata (prepare-metadata
                   (apply str
                          (take 500 (slurp file :encoding (:encoding (config/config))))))
         content (delay
-                 (:out (sh/sh (:emacs (config/config))
-                           "--batch" "--eval"
+                 
+                 (:out (sh/sh "emacs"
+                           "-batch" "-eval"
                            (str
                             "(progn "
                             (apply str (:emacs-eval (config/config)))
@@ -83,18 +82,20 @@
         (= dir :public) (str (:in-dir (config/config)) "public/")
         (= dir :site) (str (:in-dir (config/config)) "site/")
         (= dir :posts) (str (:in-dir (config/config)) "posts/")
+        (= dir :writeups) (str (:in-dir (config/config)) "site/writeups")
         :default (throw (Exception. "Unknown Directory."))))
 
 (defn list-files [d]
   (let [d (File. (dir-path d))]
     (if (.isDirectory d)
-      (sort
-       (FileUtils/listFiles d (into-array ["markdown"
+      (->> (FileUtils/listFiles d (into-array ["markdown"
                                            "md"
                                            "clj"
                                            "cssgen"
                                            "org"
-                                           "html"]) true)) [] )))
+                                              "html"]) true)
+          (remove #(clojure.string/index-of (str %) "/."))
+          sort) [] )))
 
 (def read-template
   (memo
